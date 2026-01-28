@@ -1,8 +1,8 @@
 import { useNavigate, useParams } from "react-router-dom";
 import Banner from "../../components/Banner/Banner";
 import { useEffect, useState } from "react";
-import type { FullData, ItemData } from "../../utils/types";
-import { useDispatch, useSelector } from "react-redux";
+import type { FullData } from "../../utils/types";
+import { useDispatch } from "react-redux";
 import { addToCart } from "../../reducers/cartReducer";
 import Preloader from "../../components/Preloader";
 
@@ -12,33 +12,37 @@ export default function ItemPage() {
 
   const [itemData, setItemData] = useState<FullData | undefined>(undefined);
   const [selected, setSelected] = useState<{ size: string, amount: number }>({ size: "", amount: 0 });
-  const [itemError, setItemError] = useState(null);
+  const [itemError, setItemError] = useState<Error | null>(null);
   const [hasSizes, setHasSizes] = useState(false);
 
   async function getData() {
-    fetch(`http://localhost:7070/api/items/${id}`)
-      .then(response => response.json())
-      .then(data => {
-        setItemData(data);
-      })
-      .catch(error => {
-        setItemError(error);
-      });
+    try {
+      const response = await fetch(`http://localhost:7070/api/items/${id}`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      const data = await response.json();
+      setItemData(data);
+      
+      // Проверяем наличие размеров сразу после получения данных
+      const hasAvailableSizes = data.sizes?.some((size: any) => size.available) || false;
+      setHasSizes(hasAvailableSizes);
+      
+      // Устанавливаем первый доступный размер по умолчанию
+      const firstAvailableSize = data.sizes?.find((size: any) => size.available);
+      if (firstAvailableSize) {
+        setSelected({ size: firstAvailableSize.size, amount: 1 });
+      }
+    } catch (error) {
+      setItemError(error instanceof Error ? error : new Error('Ошибка загрузки данных'));
+    }
   }
 
   useEffect(() => {
-    getData();
-  }, []);
-
-  useEffect(() => {
-    if (itemData) {
-      for (let i = 0; i < itemData.sizes.length; i++) {
-        if (itemData.sizes[i].available) {
-          setHasSizes(true);
-        }
-      }
+    if (id) {
+      getData();
     }
-  }, [itemData]);
+  }, [id]);
 
   const navigate = useNavigate();
 
@@ -49,7 +53,7 @@ export default function ItemPage() {
           <div className="row">
             <div className="col">
               <Banner />
-              <p>Ошибка при загрузке элемента</p>
+              <p>Ошибка при загрузке элемента: {itemError.message}</p>
               <button
                 className="btn btn-outline-primary"
                 onClick={() => {
@@ -72,7 +76,11 @@ export default function ItemPage() {
                   <h2 className="text-center">{itemData.title}</h2>
                   <div className="row">
                     <div className="col-5">
-                      <img src={itemData.images[0]} className="img-fluid" alt="" />
+                      <img 
+                        src={itemData.images?.[0] || '/placeholder.jpg'} 
+                        className="img-fluid" 
+                        alt={itemData.title} 
+                      />
                     </div>
                     <div className="col-7">
                       <table className="table table-bordered">
@@ -107,12 +115,12 @@ export default function ItemPage() {
                         <div className="text-center">
                           <p>
                             Размеры в наличии:
-                            {itemData.sizes.map(item =>
+                            {itemData.sizes.map((item) =>
                               item.available && (
                                 <span
-                                  key={item.size}  // ДОБАВИЛИ UNIQUE KEY
-                                  className={item.size == selected?.size ? "catalog-item-size selected" : "catalog-item-size"}
-                                  onClick={() => setSelected({ size: item.size, amount: selected.amount })}
+                                  key={item.size}
+                                  className={item.size === selected?.size ? "catalog-item-size selected" : "catalog-item-size"}
+                                  onClick={() => setSelected({ ...selected, size: item.size })}
                                 >
                                   {item.size}
                                 </span>
@@ -125,8 +133,9 @@ export default function ItemPage() {
                               <button
                                 className="btn btn-secondary"
                                 onClick={() => {
-                                  if (selected.amount > 0)
-                                    setSelected({ size: selected.size, amount: selected.amount - 1 });
+                                  if (selected.amount > 1) {
+                                    setSelected({ ...selected, amount: selected.amount - 1 });
+                                  }
                                 }}
                               >
                                 -
@@ -134,7 +143,7 @@ export default function ItemPage() {
                               <span className="btn btn-outline-primary">{selected.amount}</span>
                               <button
                                 className="btn btn-secondary"
-                                onClick={() => setSelected({ size: selected.size, amount: selected.amount + 1 })}
+                                onClick={() => setSelected({ ...selected, amount: selected.amount + 1 })}
                               >
                                 +
                               </button>
@@ -142,6 +151,7 @@ export default function ItemPage() {
                           </p>
                           <button
                             className="btn btn-danger btn-block btn-lg"
+                            disabled={selected.amount === 0 || selected.size === ""}
                             onClick={() => {
                               if (selected.amount > 0 && selected.size !== "") {
                                 dispatch(addToCart({
@@ -151,7 +161,7 @@ export default function ItemPage() {
                                   price: itemData.price,
                                   id: itemData.id
                                 }));
-                                navigate("/cart"); // Исправлено для современного формата маршрутов
+                                navigate("/cart.html");
                               }
                             }}
                           >
@@ -159,7 +169,7 @@ export default function ItemPage() {
                           </button>
                         </div>
                       ) : (
-                        <p>Нет в наличии</p>
+                        <p className="text-center text-danger">Нет в наличии</p>
                       )}
                     </div>
                   </div>
