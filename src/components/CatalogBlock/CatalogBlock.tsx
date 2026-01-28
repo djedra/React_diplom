@@ -19,7 +19,7 @@ export default function CatalogBlock() {
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
 
-  // Используем any для обхода ошибки типов
+  
   const searchString = useAppSelector((state: any) => state.search?.query || "");
   const [currentSearchQuery, setCurrentSearchQuery] = useState(searchString);
 

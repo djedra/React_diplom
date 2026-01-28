@@ -4,7 +4,7 @@ import { changeSearchQuery } from '../../reducers/searchBarReducer';
 import { useNavigate } from 'react-router-dom';
 
 export default function Header() {
-    // Используем any для обхода ошибки типов
+    
     const itemsInCart = useAppSelector((state: any) => state.cart);
     const [searchForm, setSearchForm] = useState<"" | "invisible">("invisible");
 
@@ -13,7 +13,7 @@ export default function Header() {
     );
 
     const [query, setQuery] = useState("");
-    const dispatch = useAppDispatch(); // Используем useAppDispatch
+    const dispatch = useAppDispatch(); 
     const navigate = useNavigate();
 
     function changeState() {
@@ -27,7 +27,7 @@ export default function Header() {
                 return;
             }
             case "redirect": {
-                // Можно добавить логику для redirect состояния
+                
                 return;
             }
         }
@@ -37,7 +37,7 @@ export default function Header() {
         setQuery(query);
     };
 
-    // Проверяем на undefined
+    
     const totalAmount = itemsInCart?.totalAmount || 0;
 
     return (

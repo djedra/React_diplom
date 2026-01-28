@@ -6,7 +6,8 @@ import { useAppSelector } from "../../utils/hooks";
 export default function OrderForm() {
   const [ownerData, setOwnerData] = useState<{ phone: string, address: string }>({ phone: "", address: "" });
 
-  const itemsInCart = useAppSelector((state) => state.cart);
+  
+  const itemsInCart = useAppSelector((state: any) => state.cart);
 
   const [status, setStatus] = useState<"waiting" | "loading" | "success" | "error">("waiting");
   const [error, setError] = useState<Error>();
@@ -17,25 +18,38 @@ export default function OrderForm() {
   }
 
   async function sendOrder(data: OrderData) {
-    await fetch("http://localhost:7070/api/order", {
-      method: "POST",
-      body: JSON.stringify(data),
-      headers: { "Content-Type": "application/json" },
-    })
-      .then(() => setStatus("success"))
-      .catch((err) => {
-        setStatus("error");
-        setError(err);
+    try {
+      const response = await fetch("http://localhost:7070/api/order", {
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: { "Content-Type": "application/json" },
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      setStatus("success");
+    } catch (err) {
+      setStatus("error");
+      setError(err instanceof Error ? err : new Error("Unknown error"));
+    }
   }
 
   function order() {
+    // Проверяем на undefined
+    const cartData = itemsInCart?.data || [];
     const orderArray: { id: number; price: number; count: number }[] = [];
-    for (let i = 0; i < itemsInCart.data.length; i++) {
-      orderArray.push({ id: itemsInCart.data[i].id, price: itemsInCart.data[i].price, count: itemsInCart.data[i].amount });
+    
+    for (let i = 0; i < cartData.length; i++) {
+      orderArray.push({ 
+        id: cartData[i].id, 
+        price: cartData[i].price, 
+        count: cartData[i].amount 
+      });
     }
 
-    const data = {
+    const data: OrderData = {
       owner: {
         phone: ownerData.phone,
         address: ownerData.address,
@@ -98,7 +112,6 @@ export default function OrderForm() {
               <button
                 type="submit"
                 className="btn btn-outline-secondary"
-                disabled={status === "loading"} // Отключаем кнопку во время загрузки
                 onClick={(e) => {
                   e.preventDefault();
                   if (validateForm()) {
@@ -116,20 +129,44 @@ export default function OrderForm() {
 
     case "loading":
       return (
-        <>
+        <section className="order">
+          <h2 className="text-center">Оформление заказа</h2>
           <Preloader />
-          <p>Идет оформление заказа...</p>
-        </>
+          <p className="text-center">Идет оформление заказа...</p>
+        </section>
       );
 
     case "success":
-      return <p>Заказ успешно оформлен!</p>;
+      return (
+        <section className="order">
+          <div className="alert alert-success text-center" role="alert">
+            <h3>Заказ успешно оформлен!</h3>
+            <p>Спасибо за ваш заказ. Мы свяжемся с вами в ближайшее время.</p>
+          </div>
+        </section>
+      );
 
     case "error":
       return (
-        <div>
-          {error ? <p>Ошибка при оформлении заказа <br />Error: {error.message}</p> : null}
-        </div>
+        <section className="order">
+          <div className="alert alert-danger text-center" role="alert">
+            <h3>Ошибка при оформлении заказа</h3>
+            {error ? (
+              <p>Error: {error.message}</p>
+            ) : (
+              <p>Произошла неизвестная ошибка. Пожалуйста, попробуйте снова.</p>
+            )}
+            <button 
+              className="btn btn-outline-primary mt-3"
+              onClick={() => setStatus("waiting")}
+            >
+              Попробовать снова
+            </button>
+          </div>
+        </section>
       );
+
+    default:
+      return null;
   }
 }
